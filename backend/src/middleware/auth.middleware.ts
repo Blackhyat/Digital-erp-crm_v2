@@ -10,10 +10,17 @@ if (!process.env.JWT_SECRET) {
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
+export type AppRole =
+  | "ADMIN"
+  | "SALES"
+  | "WAREHOUSE"
+  | "ACCOUNTS"
+  | "OPERATIONS";
+
 export interface AuthenticatedRequest extends Request {
   user?: {
     userId: number;
-    role: "ADMIN" | "SALES" | "WAREHOUSE" | "ACCOUNTS";
+    role: AppRole;
   };
 }
 
@@ -34,7 +41,7 @@ export const authenticate = (
 
     const decoded = jwt.verify(token, JWT_SECRET) as {
       userId: number;
-      role: "ADMIN" | "SALES" | "WAREHOUSE" | "ACCOUNTS";
+      role: AppRole;
     };
 
     req.user = {
@@ -51,11 +58,7 @@ export const authenticate = (
   }
 };
 
-export const authorize = (
-  ...allowedRoles: Array<
-    "ADMIN" | "SALES" | "WAREHOUSE" | "ACCOUNTS"
-  >
-) => {
+export const authorize = (...allowedRoles: AppRole[]) => {
   return (
     req: AuthenticatedRequest,
     res: Response,
