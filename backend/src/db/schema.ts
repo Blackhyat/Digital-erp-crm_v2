@@ -434,3 +434,89 @@ export const salesChallanItems = pgTable(
     }).notNull(),
   }
 );
+
+
+
+
+/* =========================
+   WORK ORDERS
+========================= */
+
+export const workOrders = pgTable("work_orders", {
+  id: serial("id").primaryKey(),
+
+  workOrderNumber: varchar("work_order_number", {
+    length: 50,
+  })
+    .notNull()
+    .unique(),
+
+  locationId: integer("location_id")
+    .notNull()
+    .references(() => locations.id),
+
+  productId: integer("product_id")
+    .notNull()
+    .references(() => products.id),
+
+  requiredQuantity: integer("required_quantity")
+    .notNull(),
+
+  assignedUserId: integer("assigned_user_id")
+    .notNull()
+    .references(() => users.id),
+
+  status: workOrderStatusEnum("status")
+    .notNull()
+    .default("ASSIGNED"),
+
+  createdBy: integer("created_by")
+    .notNull()
+    .references(() => users.id),
+
+  createdAt: timestamp("created_at")
+    .defaultNow()
+    .notNull(),
+
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .notNull(),
+});
+
+
+
+/* =========================
+   WORK ORDER MATERIALS
+========================= */
+
+export const workOrderMaterials = pgTable(
+  "work_order_materials",
+  {
+    id: serial("id").primaryKey(),
+
+    workOrderId: integer("work_order_id")
+      .notNull()
+      .references(() => workOrders.id, {
+        onDelete: "cascade",
+      }),
+
+    productId: integer("product_id")
+      .notNull()
+      .references(() => products.id),
+
+    requiredQuantity: integer("required_quantity")
+      .notNull(),
+
+    availableQuantity: integer("available_quantity")
+      .notNull()
+      .default(0),
+
+    shortageQuantity: integer("shortage_quantity")
+      .notNull()
+      .default(0),
+
+    createdAt: timestamp("created_at")
+      .defaultNow()
+      .notNull(),
+  }
+);
