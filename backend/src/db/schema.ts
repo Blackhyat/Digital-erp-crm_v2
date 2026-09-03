@@ -282,6 +282,45 @@ export const inventory = pgTable("inventory", {
 
 
 
+/* =========================
+   INVENTORY TRANSACTIONS
+========================= */
+
+export const inventoryTransactions = pgTable(
+  "inventory_transactions",
+  {
+    id: serial("id").primaryKey(),
+
+    inventoryId: integer("inventory_id")
+      .notNull()
+      .references(() => inventory.id),
+
+    transactionType: inventoryTransactionTypeEnum(
+      "transaction_type"
+    ).notNull(),
+
+    quantity: integer("quantity")
+      .notNull(),
+
+    reason: varchar("reason", {
+      length: 255,
+    }).notNull(),
+
+    reference: varchar("reference", {
+      length: 100,
+    }),
+
+    createdBy: integer("created_by")
+      .notNull()
+      .references(() => users.id),
+
+    createdAt: timestamp("created_at")
+      .defaultNow()
+      .notNull(),
+  }
+);
+
+
 
 /* =========================
    STOCK MOVEMENTS
