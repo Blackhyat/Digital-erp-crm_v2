@@ -215,6 +215,35 @@ export const products = pgTable("products", {
     .notNull(),
 });
 
+
+/* =========================
+   LOCATIONS
+========================= */
+
+export const locations = pgTable("locations", {
+  id: serial("id").primaryKey(),
+
+  name: varchar("name", {
+    length: 150,
+  }).notNull().unique(),
+
+  code: varchar("code", {
+    length: 50,
+  }).notNull().unique(),
+
+  address: text("address"),
+
+  createdAt: timestamp("created_at")
+    .defaultNow()
+    .notNull(),
+
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .notNull(),
+});
+
+
+
 /* =========================
    STOCK MOVEMENTS
 ========================= */
