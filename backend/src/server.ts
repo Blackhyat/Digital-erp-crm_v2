@@ -8,6 +8,7 @@ import customerRoutes from "./customers/customer.routes.js";
 import productRoutes from "./products/product.routes.js";
 import salesChallanRoutes from "./sales-challans/sales-challan.routes.js";
 import inventoryRoutes from "./inventory/inventory.routes.js";
+import workOrderRoutes from "./work-orders/work-order.routes.js";
 
 
 config();
@@ -76,6 +77,7 @@ app.use("/api/customers", customerRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/sales-challans", salesChallanRoutes);
 app.use("/api/inventory", inventoryRoutes);
+app.use("/api/work-orders", workOrderRoutes);
 
 /* =========================
    404 HANDLER
