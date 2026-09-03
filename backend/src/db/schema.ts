@@ -245,6 +245,45 @@ export const locations = pgTable("locations", {
 
 
 /* =========================
+   INVENTORY
+========================= */
+
+export const inventory = pgTable("inventory", {
+  id: serial("id").primaryKey(),
+
+  productId: integer("product_id")
+    .notNull()
+    .references(() => products.id),
+
+  locationId: integer("location_id")
+    .notNull()
+    .references(() => locations.id),
+
+  batchNumber: varchar("batch_number", {
+    length: 100,
+  }).notNull(),
+
+  physicalQuantity: integer("physical_quantity")
+    .notNull()
+    .default(0),
+
+  reservedQuantity: integer("reserved_quantity")
+    .notNull()
+    .default(0),
+
+  createdAt: timestamp("created_at")
+    .defaultNow()
+    .notNull(),
+
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .notNull(),
+});
+
+
+
+
+/* =========================
    STOCK MOVEMENTS
 ========================= */
 
