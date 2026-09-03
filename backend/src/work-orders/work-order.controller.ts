@@ -62,13 +62,19 @@ export const getWorkOrders = async (
     for (const row of rows) {
       const materialRows = await db
         .select({
-          requiredQuantity: workOrderMaterials.requiredQuantity,
-          availableQuantity: workOrderMaterials.availableQuantity,
-          shortageQuantity: workOrderMaterials.shortageQuantity,
+          requiredQuantity:
+            workOrderMaterials.requiredQuantity,
+          availableQuantity:
+            workOrderMaterials.availableQuantity,
+          shortageQuantity:
+            workOrderMaterials.shortageQuantity,
         })
         .from(workOrderMaterials)
         .where(
-          eq(workOrderMaterials.workOrderId, row.id)
+          eq(
+            workOrderMaterials.workOrderId,
+            row.id
+          )
         );
 
       data.push({
@@ -81,8 +87,11 @@ export const getWorkOrders = async (
       success: true,
       data,
     });
-  } catch (error) {
-    console.error("Get work orders error:", error);
+  } catch (error: any) {
+    console.error(
+      "Get work orders error:",
+      error?.message || error
+    );
 
     return res.status(500).json({
       success: false,
@@ -99,13 +108,23 @@ export const createWorkOrder = async (
   req: AuthenticatedRequest,
   res: Response
 ) => {
+  let createdWorkOrderId: number | null = null;
+
   try {
+    /* =========================
+       AUTHENTICATION
+    ========================= */
+
     if (!req.user) {
       return res.status(401).json({
         success: false,
         message: "Authentication required",
       });
     }
+
+    /* =========================
+       VALIDATE REQUEST
+    ========================= */
 
     const result = createWorkOrderSchema.safeParse(
       req.body
@@ -128,12 +147,37 @@ export const createWorkOrder = async (
     } = result.data;
 
     /* =========================
+       CHECK WORK ORDER NUMBER
+    ========================= */
+
+    const existingWorkOrder = await db
+      .select({
+        id: workOrders.id,
+      })
+      .from(workOrders)
+      .where(
+        eq(
+          workOrders.workOrderNumber,
+          workOrderNumber
+        )
+      )
+      .limit(1);
+
+    if (existingWorkOrder.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: "Work order number already exists",
+      });
+    }
+
+    /* =========================
        CHECK LOCATION
     ========================= */
 
     const locationRows = await db
       .select({
         id: locations.id,
+        name: locations.name,
       })
       .from(locations)
       .where(eq(locations.id, locationId))
@@ -153,6 +197,7 @@ export const createWorkOrder = async (
     const productRows = await db
       .select({
         id: products.id,
+        name: products.name,
       })
       .from(products)
       .where(eq(products.id, productId))
@@ -172,6 +217,7 @@ export const createWorkOrder = async (
     const assignedUserRows = await db
       .select({
         id: users.id,
+        name: users.name,
         role: users.role,
       })
       .from(users)
@@ -187,13 +233,19 @@ export const createWorkOrder = async (
 
     /* =========================
        CALCULATE AVAILABLE STOCK
-       Physical - Reserved
+       
+       Available =
+       Physical Quantity - Reserved Quantity
     ========================= */
 
     const inventoryRows = await db
       .select({
-        physicalQuantity: inventory.physicalQuantity,
-        reservedQuantity: inventory.reservedQuantity,
+        id: inventory.id,
+        physicalQuantity:
+          inventory.physicalQuantity,
+        reservedQuantity:
+          inventory.reservedQuantity,
+        batchNumber: inventory.batchNumber,
       })
       .from(inventory)
       .where(
@@ -204,12 +256,26 @@ export const createWorkOrder = async (
       );
 
     const availableQuantity = inventoryRows.reduce(
-      (total, item) =>
-        total +
-        (item.physicalQuantity -
-          item.reservedQuantity),
+      (total, item) => {
+        const physical =
+          item.physicalQuantity ?? 0;
+
+        const reserved =
+          item.reservedQuantity ?? 0;
+
+        const available = Math.max(
+          physical - reserved,
+          0
+        );
+
+        return total + available;
+      },
       0
     );
+
+    /* =========================
+       CALCULATE SHORTAGE
+    ========================= */
 
     const shortageQuantity = Math.max(
       requiredQuantity - availableQuantity,
@@ -233,44 +299,144 @@ export const createWorkOrder = async (
       })
       .returning();
 
+    if (!inserted[0]) {
+      throw new Error(
+        "Work order could not be created"
+      );
+    }
+
     const workOrder = inserted[0];
+
+    createdWorkOrderId = workOrder.id;
 
     /* =========================
        CREATE WORK ORDER MATERIAL
     ========================= */
 
-    await db.insert(workOrderMaterials).values({
-      workOrderId: workOrder.id,
-      productId,
-      requiredQuantity,
-      availableQuantity,
-      shortageQuantity,
-    });
+    const materialInserted = await db
+      .insert(workOrderMaterials)
+      .values({
+        workOrderId: workOrder.id,
+        productId,
+        requiredQuantity,
+        availableQuantity,
+        shortageQuantity,
+      })
+      .returning();
+
+    if (!materialInserted[0]) {
+      throw new Error(
+        "Work order material could not be created"
+      );
+    }
+
+    /* =========================
+       SUCCESS RESPONSE
+    ========================= */
 
     return res.status(201).json({
       success: true,
       message: "Work order created successfully",
       data: {
-        ...workOrder,
+        id: workOrder.id,
+        workOrderNumber:
+          workOrder.workOrderNumber,
+        locationId: workOrder.locationId,
+        productId: workOrder.productId,
+        requiredQuantity:
+          workOrder.requiredQuantity,
+        assignedUserId:
+          workOrder.assignedUserId,
+        status: workOrder.status,
         availableQuantity,
         shortageQuantity,
       },
     });
   } catch (error: any) {
-    console.error("Create work order error:", error);
+    console.error(
+      "================================="
+    );
+    console.error(
+      "CREATE WORK ORDER ERROR"
+    );
+    console.error(
+      "Message:",
+      error?.message
+    );
+    console.error(
+      "Code:",
+      error?.code
+    );
+    console.error(
+      "Detail:",
+      error?.detail
+    );
+    console.error(
+      "Constraint:",
+      error?.constraint
+    );
+    console.error(
+      "================================="
+    );
 
-    if (
-      error?.code === "23505"
-    ) {
+    /* =========================
+       CLEANUP PARTIAL WORK ORDER
+    ========================= */
+
+    if (createdWorkOrderId !== null) {
+      try {
+        await db
+          .delete(workOrderMaterials)
+          .where(
+            eq(
+              workOrderMaterials.workOrderId,
+              createdWorkOrderId
+            )
+          );
+
+        await db
+          .delete(workOrders)
+          .where(
+            eq(
+              workOrders.id,
+              createdWorkOrderId
+            )
+          );
+
+        console.log(
+          "Partial work order cleaned up:",
+          createdWorkOrderId
+        );
+      } catch (cleanupError: any) {
+        console.error(
+          "Cleanup error:",
+          cleanupError?.message ||
+            cleanupError
+        );
+      }
+    }
+
+    /* =========================
+       DUPLICATE WORK ORDER
+    ========================= */
+
+    if (error?.code === "23505") {
       return res.status(409).json({
         success: false,
-        message: "Work order number already exists",
+        message:
+          "Work order number already exists",
       });
     }
 
+    /* =========================
+       DEVELOPMENT ERROR
+    ========================= */
+
     return res.status(500).json({
       success: false,
-      message: "Failed to create work order",
+      message:
+        error?.message ||
+        "Failed to create work order",
     });
   }
 };
@@ -284,17 +450,32 @@ export const updateWorkOrderStatus = async (
   res: Response
 ) => {
   try {
-    const workOrderId = Number(req.params.id);
+    /* =========================
+       VALIDATE ID
+    ========================= */
 
-    if (!Number.isInteger(workOrderId) || workOrderId <= 0) {
+    const workOrderId = Number(
+      req.params.id
+    );
+
+    if (
+      !Number.isInteger(workOrderId) ||
+      workOrderId <= 0
+    ) {
       return res.status(400).json({
         success: false,
         message: "Invalid work order ID",
       });
     }
 
+    /* =========================
+       VALIDATE STATUS
+    ========================= */
+
     const result =
-      updateWorkOrderStatusSchema.safeParse(req.body);
+      updateWorkOrderStatusSchema.safeParse(
+        req.body
+      );
 
     if (!result.success) {
       return res.status(400).json({
@@ -304,10 +485,19 @@ export const updateWorkOrderStatus = async (
       });
     }
 
+    /* =========================
+       FIND WORK ORDER
+    ========================= */
+
     const existing = await db
       .select()
       .from(workOrders)
-      .where(eq(workOrders.id, workOrderId))
+      .where(
+        eq(
+          workOrders.id,
+          workOrderId
+        )
+      )
       .limit(1);
 
     if (existing.length === 0) {
@@ -317,11 +507,15 @@ export const updateWorkOrderStatus = async (
       });
     }
 
-    const currentStatus = existing[0].status;
-    const newStatus = result.data.status;
+    const currentStatus =
+      existing[0].status;
+
+    const newStatus =
+      result.data.status;
 
     /* =========================
-       STATUS FLOW VALIDATION
+       STATUS FLOW
+       
        ASSIGNED
           ↓
        IN_PROGRESS
@@ -344,29 +538,41 @@ export const updateWorkOrderStatus = async (
       });
     }
 
+    /* =========================
+       UPDATE STATUS
+    ========================= */
+
     const updated = await db
       .update(workOrders)
       .set({
         status: newStatus,
         updatedAt: new Date(),
       })
-      .where(eq(workOrders.id, workOrderId))
+      .where(
+        eq(
+          workOrders.id,
+          workOrderId
+        )
+      )
       .returning();
 
     return res.status(200).json({
       success: true,
-      message: "Work order status updated successfully",
+      message:
+        "Work order status updated successfully",
       data: updated[0],
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error(
       "Update work order status error:",
-      error
+      error?.message || error
     );
 
     return res.status(500).json({
       success: false,
-      message: "Failed to update work order status",
+      message:
+        error?.message ||
+        "Failed to update work order status",
     });
   }
 };
