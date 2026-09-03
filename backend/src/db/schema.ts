@@ -19,6 +19,7 @@ export const userRoleEnum = pgEnum("user_role", [
   "SALES",
   "WAREHOUSE",
   "ACCOUNTS",
+  "OPERATIONS",
 ]);
 
 export const customerTypeEnum = pgEnum("customer_type", [
@@ -43,6 +44,31 @@ export const challanStatusEnum = pgEnum("challan_status", [
   "CONFIRMED",
   "CANCELLED",
 ]);
+
+
+/* =========================
+   CASE STUDY 2 ENUMS
+========================= */
+
+export const inventoryTransactionTypeEnum = pgEnum(
+  "inventory_transaction_type",
+  ["IN", "OUT", "ADJUSTMENT"]
+);
+
+export const workOrderStatusEnum = pgEnum(
+  "work_order_status",
+  ["ASSIGNED", "IN_PROGRESS", "COMPLETED"]
+);
+
+export const transferStatusEnum = pgEnum(
+  "transfer_status",
+  ["REQUESTED", "DISPATCHED", "RECEIVED"]
+);
+
+export const customerOrderStatusEnum = pgEnum(
+  "customer_order_status",
+  ["RESERVED", "CANCELLED", "COMPLETED"]
+);
 
 /* =========================
    USERS
