@@ -520,3 +520,73 @@ export const workOrderMaterials = pgTable(
       .notNull(),
   }
 );
+
+
+/* =========================
+   INTERNAL TRANSFERS
+========================= */
+
+export const internalTransfers = pgTable(
+  "internal_transfers",
+  {
+    id: serial("id").primaryKey(),
+
+    transferNumber: varchar("transfer_number", {
+      length: 50,
+    })
+      .notNull()
+      .unique(),
+
+    sourceLocationId: integer("source_location_id")
+      .notNull()
+      .references(() => locations.id),
+
+    destinationLocationId: integer(
+      "destination_location_id"
+    )
+      .notNull()
+      .references(() => locations.id),
+
+    productId: integer("product_id")
+      .notNull()
+      .references(() => products.id),
+
+    batchNumber: varchar("batch_number", {
+      length: 100,
+    }).notNull(),
+
+    quantity: integer("quantity").notNull(),
+
+    status: transferStatusEnum("status")
+      .notNull()
+      .default("REQUESTED"),
+
+    requestedBy: integer("requested_by")
+      .notNull()
+      .references(() => users.id),
+
+    dispatchedBy: integer("dispatched_by").references(
+      () => users.id
+    ),
+
+    receivedBy: integer("received_by").references(
+      () => users.id
+    ),
+
+    requestedAt: timestamp("requested_at")
+      .defaultNow()
+      .notNull(),
+
+    dispatchedAt: timestamp("dispatched_at"),
+
+    receivedAt: timestamp("received_at"),
+
+    createdAt: timestamp("created_at")
+      .defaultNow()
+      .notNull(),
+
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .notNull(),
+  }
+);
